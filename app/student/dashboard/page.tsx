@@ -1,3 +1,4 @@
+import Link from "next/link";
 import LogoutButton from "@/components/auth/LogoutButton";
 
 export default function StudentDashboardPage() {
@@ -13,6 +14,12 @@ export default function StudentDashboardPage() {
             <p className="mt-3 text-zinc-600">
               You are signed in as a Student.
             </p>
+            <Link
+  href="/student/subjects"
+  className="mt-6 inline-block rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
+>
+  My Subjects
+</Link>
           </div>
 
           <LogoutButton />
