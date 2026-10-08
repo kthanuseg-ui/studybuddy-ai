@@ -14,12 +14,22 @@ export default function StudentDashboardPage() {
             <p className="mt-3 text-zinc-600">
               You are signed in as a Student.
             </p>
-            <Link
-  href="/student/subjects"
-  className="mt-6 inline-block rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
->
-  My Subjects
-</Link>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="/student/subjects"
+                className="inline-block rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
+              >
+                My Subjects
+              </Link>
+
+              <Link
+                href="/student/notes"
+                className="inline-block rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
+              >
+                My Notes
+              </Link>
+            </div>
           </div>
 
           <LogoutButton />
