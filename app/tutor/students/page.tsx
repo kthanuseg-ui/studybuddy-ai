@@ -264,6 +264,14 @@ export default async function TutorStudentsPage() {
                     >
                       View Results →
                     </Link>
+
+<Link
+  href={`/tutor/students/${student.id}/weaknesses`}
+  className="rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+>
+  View Weaknesses →
+</Link>
+
                   </div>
                 </article>
               ))}
