@@ -26,6 +26,11 @@ type WeaknessAnalysis = {
   error?: string;
 };
 
+type RecommendationResponse = {
+  recommendations?: string;
+  error?: string;
+};
+
 function getAssessmentLabel(assessment: Assessment) {
   switch (assessment) {
     case "not_enough_data":
@@ -76,7 +81,13 @@ export default function MyWeaknessesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Load the student's analysis from our secure API.
+  // AI recommendations state.
+  const [generating, setGenerating] = useState(false);
+  const [recommendations, setRecommendations] = useState("");
+  const [recommendationError, setRecommendationError] =
+    useState("");
+
+  // Load the student's weakness analysis.
   useEffect(() => {
     const controller = new AbortController();
 
@@ -133,6 +144,63 @@ export default function MyWeaknessesPage() {
     };
   }, []);
 
+  // Generate AI recommendations only when the student clicks.
+  async function handleGenerateRecommendations() {
+    if (
+      generating ||
+      recommendations ||
+      !analysis ||
+      analysis.analyzedAnswers === 0
+    ) {
+      return;
+    }
+
+    setGenerating(true);
+    setRecommendationError("");
+
+    try {
+      const response = await fetch(
+        "/api/ai/recommendations",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        }
+      );
+
+      const data =
+        (await response.json()) as RecommendationResponse;
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "Unable to generate AI recommendations."
+        );
+      }
+
+      if (
+        typeof data.recommendations !== "string" ||
+        data.recommendations.trim().length === 0
+      ) {
+        throw new Error(
+          "OpenAI did not return any recommendations."
+        );
+      }
+
+      setRecommendations(data.recommendations.trim());
+    } catch (err) {
+      setRecommendationError(
+        err instanceof Error
+          ? err.message
+          : "Unable to generate recommendations."
+      );
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   // Calculate summary statistics.
   const topics = analysis?.topics ?? [];
 
@@ -164,7 +232,7 @@ export default function MyWeaknessesPage() {
 
             <p className="mt-2 text-zinc-600">
               Discover which topics need more practice
-              and track your learning performance.
+              and get personalized study recommendations.
             </p>
           </div>
 
@@ -193,7 +261,6 @@ export default function MyWeaknessesPage() {
             </p>
           </div>
         ) : error ? (
-          /* Error state */
           <div
             role="alert"
             className="rounded-2xl border border-red-200 bg-red-50 p-6"
@@ -305,6 +372,96 @@ export default function MyWeaknessesPage() {
               </div>
             </section>
 
+            {/* AI Study Recommendations */}
+            <section className="mt-8 rounded-2xl border border-purple-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-zinc-900">
+                    AI Study Recommendations
+                  </h2>
+
+                  <p className="mt-2 max-w-2xl text-sm text-zinc-600">
+                    Get personalized revision strategies,
+                    practice exercises, and a study plan
+                    based on your quiz performance.
+                  </p>
+                </div>
+
+                <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
+                  Powered by AI
+                </span>
+              </div>
+
+              {recommendationError && (
+                <p
+                  role="alert"
+                  className="mt-5 rounded-lg bg-red-50 p-4 text-sm text-red-700"
+                >
+                  {recommendationError}
+                </p>
+              )}
+
+              {recommendations ? (
+                <div className="mt-6">
+                  <div className="mb-4 flex items-center gap-2">
+                    <span className="text-green-700">
+                      ✓
+                    </span>
+
+                    <h3 className="font-semibold text-zinc-900">
+                      Your Personalized Study Plan
+                    </h3>
+                  </div>
+
+                  <div className="whitespace-pre-wrap break-words rounded-xl bg-purple-50 p-5 text-sm leading-7 text-zinc-800">
+                    {recommendations}
+                  </div>
+
+                  <p className="mt-4 text-xs text-zinc-500">
+                    AI-generated advice can contain mistakes.
+                    Use it as study guidance and verify
+                    important information.
+                  </p>
+                </div>
+              ) : analysis.analyzedAnswers === 0 ? (
+                <div className="mt-6 rounded-xl bg-zinc-50 p-5">
+                  <p className="text-sm text-zinc-600">
+                    Complete a quiz before requesting AI
+                    study recommendations.
+                  </p>
+
+                  <Link
+                    href="/student/quizzes"
+                    className="mt-3 inline-block text-sm font-medium text-blue-600 hover:underline"
+                  >
+                    Go to My Quizzes →
+                  </Link>
+                </div>
+              ) : (
+                <div className="mt-6">
+                  <button
+                    type="button"
+                    onClick={handleGenerateRecommendations}
+                    disabled={generating}
+                    className="rounded-lg bg-purple-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {generating
+                      ? "Generating recommendations..."
+                      : "Generate AI Recommendations"}
+                  </button>
+
+                  <p
+                    aria-live="polite"
+                    className="mt-3 text-xs text-zinc-500"
+                  >
+                    {generating
+                      ? "OpenAI is preparing your personalized study plan. Please wait."
+                      : "Recommendations are generated only when you click. This request may incur a small OpenAI API charge."}
+                  </p>
+                </div>
+              )}
+            </section>
+
             {/* Topic breakdown */}
             <section className="mt-8 rounded-2xl bg-white p-6 shadow-sm">
               <h2 className="text-xl font-semibold text-zinc-900">
@@ -379,7 +536,6 @@ export default function MyWeaknessesPage() {
                         </p>
                       </div>
 
-                      {/* Topic success progress bar */}
                       <div
                         className="mt-3 h-3 overflow-hidden rounded-full bg-zinc-200"
                         role="progressbar"
@@ -401,7 +557,6 @@ export default function MyWeaknessesPage() {
                         />
                       </div>
 
-                      {/* Advice without an AI call */}
                       {topic.assessment ===
                         "not_enough_data" && (
                         <p className="mt-4 rounded-lg bg-zinc-50 p-3 text-sm text-zinc-700">
