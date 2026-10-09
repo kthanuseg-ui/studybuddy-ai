@@ -1,3 +1,5 @@
+
+import Link from "next/link";
 import LogoutButton from "@/components/auth/LogoutButton";
 
 export default function AdminDashboardPage() {
@@ -16,6 +18,23 @@ export default function AdminDashboardPage() {
           </div>
 
           <LogoutButton />
+        </div>
+
+        <div className="mt-8 border-t border-zinc-200 pt-6">
+          <h2 className="text-lg font-semibold text-zinc-900">
+            Administration
+          </h2>
+
+          <p className="mt-2 text-sm text-zinc-600">
+            Manage users and administration settings.
+          </p>
+
+          <Link
+            href="/admin/users"
+            className="mt-5 inline-block rounded-lg bg-purple-600 px-5 py-3 text-sm font-semibold text-white hover:bg-purple-700"
+          >
+            Manage Users →
+          </Link>
         </div>
       </div>
     </main>
