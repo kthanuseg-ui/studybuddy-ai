@@ -159,6 +159,41 @@ export async function POST(request: Request) {
     }
   );
 
+  // Check the daily AI quiz generation quota
+  // BEFORE making a paid OpenAI request.
+  const { data: quotaAllowed, error: quotaError } =
+    await adminSupabase.rpc(
+      "consume_ai_quiz_generation_quota",
+      {
+        p_student_id: user.id,
+      }
+    );
+
+  if (quotaError) {
+    console.error(
+      "Unable to check AI quiz generation quota:",
+      quotaError.message
+    );
+
+    return NextResponse.json(
+      { error: "Unable to verify the daily quiz limit." },
+      { status: 503 }
+    );
+  }
+
+  if (quotaAllowed !== true) {
+    return NextResponse.json(
+      {
+        error:
+          "Daily AI quiz generation limit reached. " +
+          "You can generate up to 5 AI quizzes per UTC day. " +
+          "Please try again tomorrow.",
+      },
+      { status: 429 }
+    );
+  }
+
+
   try {
     // 9. Generate and validate the quiz using OpenAI.
     const generatedQuiz = await generateQuizFromNote({
