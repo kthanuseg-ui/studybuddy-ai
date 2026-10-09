@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@/utils/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -263,7 +264,58 @@ export async function POST() {
         assessment: topic.assessment,
       })),
     };
+// Check the daily AI recommendation quota before calling OpenAI.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const secretKey = process.env.SUPABASE_SECRET_KEY;
 
+if (!supabaseUrl || !secretKey) {
+  return NextResponse.json(
+    { error: "Server configuration is missing." },
+    { status: 503 }
+  );
+}
+
+const adminSupabase = createAdminClient(
+  supabaseUrl,
+  secretKey,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  }
+);
+
+const { data: quotaAllowed, error: quotaError } =
+  await adminSupabase.rpc(
+    "consume_ai_recommendation_quota",
+    {
+      p_student_id: user.id,
+    }
+  );
+
+if (quotaError) {
+  console.error(
+    "AI recommendation quota check failed:",
+    quotaError.message
+  );
+
+  return NextResponse.json(
+    { error: "Unable to verify the AI usage limit." },
+    { status: 503 }
+  );
+}
+
+if (quotaAllowed !== true) {
+  return NextResponse.json(
+    {
+      error:
+        "Daily limit reached. You can generate up to 3 AI recommendations per day. Please try again tomorrow (UTC).",
+    },
+    { status: 429 }
+  );
+}
     // 11. Generate personalized study recommendations.
     const openai = new OpenAI({ apiKey });
 
