@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { generateQuizFromNote } from "@/lib/ai/generate-quiz";
+
+export const runtime = "nodejs";
 
 type GenerateQuizRequest = {
   noteId?: unknown;
@@ -9,8 +12,10 @@ type GenerateQuizRequest = {
 };
 
 export async function POST(request: Request) {
+  // 1. Create the Supabase client using the user's session.
   const supabase = await createClient();
 
+  // 2. Verify authentication.
   const {
     data: { user },
     error: userError,
@@ -23,6 +28,7 @@ export async function POST(request: Request) {
     );
   }
 
+  // 3. Verify that the user has the Student role.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role")
@@ -43,11 +49,23 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: GenerateQuizRequest;
+  // 4. Parse and validate the request.
+  let body: unknown;
 
   try {
-    body = (await request.json()) as GenerateQuizRequest;
+    body = await request.json();
   } catch {
+    return NextResponse.json(
+      { error: "Invalid request body." },
+      { status: 400 }
+    );
+  }
+
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    Array.isArray(body)
+  ) {
     return NextResponse.json(
       { error: "Invalid request body." },
       { status: 400 }
@@ -58,9 +76,12 @@ export async function POST(request: Request) {
     noteId,
     numberOfQuestions,
     questionType,
-  } = body;
+  } = body as GenerateQuizRequest;
 
-  if (typeof noteId !== "string" || !noteId) {
+  if (
+    typeof noteId !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(noteId)
+  ) {
     return NextResponse.json(
       { error: "A valid noteId is required." },
       { status: 400 }
@@ -85,6 +106,7 @@ export async function POST(request: Request) {
     );
   }
 
+  // 5. Retrieve the note using the student's permissions.
   const { data: note, error: noteError } = await supabase
     .from("notes")
     .select("id, student_id, subject_id, title, content")
@@ -105,6 +127,7 @@ export async function POST(request: Request) {
     );
   }
 
+  // 6. Verify note ownership before using elevated privileges.
   if (note.student_id !== user.id) {
     return NextResponse.json(
       { error: "You do not own this note." },
@@ -112,7 +135,32 @@ export async function POST(request: Request) {
     );
   }
 
-   try {
+  // 7. Verify the server-only Supabase configuration.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
+
+  if (!supabaseUrl || !supabaseSecretKey) {
+    return NextResponse.json(
+      { error: "Server database configuration is missing." },
+      { status: 503 }
+    );
+  }
+
+  // 8. Create a privileged client used ONLY on the server.
+  const adminSupabase = createAdminClient(
+    supabaseUrl,
+    supabaseSecretKey,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    }
+  );
+
+  try {
+    // 9. Generate and validate the quiz using OpenAI.
     const generatedQuiz = await generateQuizFromNote({
       noteTitle: note.title,
       noteContent: note.content,
@@ -120,7 +168,8 @@ export async function POST(request: Request) {
       questionType: "multiple_choice",
     });
 
-    const { data: quiz, error: quizError } = await supabase
+    // 10. Save the quiz using the server-only client.
+    const { data: quiz, error: quizError } = await adminSupabase
       .from("quizzes")
       .insert({
         student_id: user.id,
@@ -133,7 +182,10 @@ export async function POST(request: Request) {
       .single();
 
     if (quizError || !quiz) {
-      console.error("Quiz creation failed:", quizError?.message);
+      console.error(
+        "Quiz creation failed:",
+        quizError?.message
+      );
 
       return NextResponse.json(
         { error: "Unable to save the generated quiz." },
@@ -141,33 +193,43 @@ export async function POST(request: Request) {
       );
     }
 
-    const questions = generatedQuiz.questions.map((question) => ({
-      quiz_id: quiz.id,
-      question_text: question.question_text,
-      question_type: question.question_type,
-      options: question.options,
-      correct_answer: question.correct_answer,
-      explanation: question.explanation,
-      topic: question.topic,
-      ai_generated: true,
-      reviewed_by_tutor: false,
-    }));
+    // 11. Prepare the generated questions.
+    const questions = generatedQuiz.questions.map(
+      (question) => ({
+        quiz_id: quiz.id,
+        question_text: question.question_text,
+        question_type: question.question_type,
+        options: question.options,
+        correct_answer: question.correct_answer,
+        explanation: question.explanation,
+        topic: question.topic,
+        ai_generated: true,
+        reviewed_by_tutor: false,
+      })
+    );
 
-    const { error: questionsError } = await supabase
+    // 12. Save questions using the server-only client.
+    const { error: questionsError } = await adminSupabase
       .from("questions")
       .insert(questions);
 
     if (questionsError) {
-      console.error("Questions creation failed:", questionsError.message);
+      console.error(
+        "Questions creation failed:",
+        questionsError.message
+      );
 
-      // Remove the incomplete quiz if saving questions fails.
-      const { error: cleanupError } = await supabase
+      // Attempt to remove the incomplete quiz.
+      const { error: cleanupError } = await adminSupabase
         .from("quizzes")
         .delete()
         .eq("id", quiz.id);
 
       if (cleanupError) {
-        console.error("Quiz cleanup failed:", cleanupError.message);
+        console.error(
+          "Quiz cleanup failed:",
+          cleanupError.message
+        );
       }
 
       return NextResponse.json(
@@ -176,6 +238,7 @@ export async function POST(request: Request) {
       );
     }
 
+    // 13. Return the successful result.
     return NextResponse.json(
       {
         quizId: quiz.id,
@@ -186,7 +249,9 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error(
       "Quiz generation failed:",
-      error instanceof Error ? error.message : "Unknown error"
+      error instanceof Error
+        ? error.message
+        : "Unknown error"
     );
 
     return NextResponse.json(

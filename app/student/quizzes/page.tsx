@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -346,6 +347,13 @@ export default function QuizzesPage() {
                       AI generated
                     </p>
                   )}
+
+                  <Link
+                    href={`/student/quizzes/${quiz.id}`}
+                    className="mt-4 inline-block rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                  >
+                    Take Quiz →
+                  </Link>
                 </div>
               ))}
             </div>
