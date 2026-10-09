@@ -44,6 +44,13 @@ export default function StudentDashboardPage() {
               >
                 My Results
               </Link>
+
+              <Link
+                href="/student/weaknesses"
+                className="inline-block rounded-lg border border-purple-600 bg-purple-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-purple-700"
+              >
+                My Weaknesses
+              </Link>
             </div>
           </div>
 
