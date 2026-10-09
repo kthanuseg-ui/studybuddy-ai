@@ -1,3 +1,5 @@
+
+import Link from "next/link";
 import LogoutButton from "@/components/auth/LogoutButton";
 
 export default function TutorDashboardPage() {
@@ -13,6 +15,15 @@ export default function TutorDashboardPage() {
             <p className="mt-3 text-zinc-600">
               You are signed in as a Tutor.
             </p>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="/tutor/students"
+                className="inline-block rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+              >
+                My Students →
+              </Link>
+            </div>
           </div>
 
           <LogoutButton />
