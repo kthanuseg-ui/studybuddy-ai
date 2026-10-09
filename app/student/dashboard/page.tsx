@@ -1,3 +1,4 @@
+
 import Link from "next/link";
 import LogoutButton from "@/components/auth/LogoutButton";
 
@@ -35,6 +36,13 @@ export default function StudentDashboardPage() {
                 className="inline-block rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
               >
                 My Quizzes
+              </Link>
+
+              <Link
+                href="/student/results"
+                className="inline-block rounded-lg border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+              >
+                My Results
               </Link>
             </div>
           </div>
