@@ -26,15 +26,25 @@ export default function AdminDashboardPage() {
           </h2>
 
           <p className="mt-2 text-sm text-zinc-600">
-            Manage users and administration settings.
+            Manage users, roles, and Tutor-Student
+            assignments.
           </p>
 
-          <Link
-            href="/admin/users"
-            className="mt-5 inline-block rounded-lg bg-purple-600 px-5 py-3 text-sm font-semibold text-white hover:bg-purple-700"
-          >
-            Manage Users →
-          </Link>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link
+              href="/admin/users"
+              className="inline-block rounded-lg bg-purple-600 px-5 py-3 text-sm font-semibold text-white hover:bg-purple-700"
+            >
+              Manage Users →
+            </Link>
+
+            <Link
+              href="/admin/assignments"
+              className="inline-block rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              Manage Assignments →
+            </Link>
+          </div>
         </div>
       </div>
     </main>
