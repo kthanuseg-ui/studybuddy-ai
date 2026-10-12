@@ -257,22 +257,22 @@ export default async function TutorStudentsPage() {
                   </div>
 
                   {/* View Results button */}
-                  <div className="mt-4 border-t border-zinc-100 pt-4">
-                    <Link
-                      href={`/tutor/students/${student.id}/results`}
-                      className="inline-block rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
-                    >
-                      View Results →
-                    </Link>
+            {/* Student action buttons */}
+<div className="mt-4 flex flex-col gap-3 border-t border-zinc-100 pt-4 sm:flex-row">
+  <Link
+    href={`/tutor/students/${student.id}/results`}
+    className="inline-flex w-full items-center justify-center rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 sm:w-auto"
+  >
+    View Results →
+  </Link>
 
-<Link
-  href={`/tutor/students/${student.id}/weaknesses`}
-  className="rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
->
-  View Weaknesses →
-</Link>
-
-                  </div>
+  <Link
+    href={`/tutor/students/${student.id}/weaknesses`}
+    className="inline-flex w-full items-center justify-center rounded-lg border border-blue-600 px-5 py-3 text-sm font-semibold text-blue-600 transition hover:bg-blue-50 sm:w-auto"
+  >
+    View Weaknesses →
+  </Link>
+</div>
                 </article>
               ))}
             </div>
