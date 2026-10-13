@@ -19,12 +19,44 @@ The platform helps students organize learning materials, generate quizzes with a
 - Review previous attempts and performance statistics.
 - Identify weak and strong topics based on quiz answers.
 - Generate AI-powered personalized study recommendations.
+- View assigned projects, explain project understanding, and receive structured AI feedback.
 
 ### Tutor Dashboard
 - View assigned students.
 - Monitor student quiz results and learning progress.
 - Analyze topics where students need additional practice.
 - Access performance data only for authorized student assignments.
+- Create projects with instructions, expected outcomes, and optional deadlines.
+- Assign projects to students and review their understanding checks and AI analyses.
+
+### Project Understanding Check
+
+Project Understanding Check is a core feature of StudyBuddy AI. It helps Tutors evaluate whether Students understand the objectives of their assigned projects before starting the work.
+
+The workflow consists of five steps:
+
+1. **Project Creation:** A Tutor creates a project with a title, instructions, expected learning outcomes, and an optional deadline.
+2. **Student Assignment:** The Tutor assigns the project to Students already linked to their account.
+3. **Student Explanation:** Each assigned Student explains their understanding of the project in their own words.
+4. **AI Analysis:** OpenAI compares the Student's explanation with the Tutor's expected outcomes and generates structured feedback.
+5. **Tutor Review:** The Tutor can review the original explanation and AI-generated feedback from their dashboard.
+
+The AI analysis identifies four elements:
+
+- **AI Summary:** An overall assessment of the Student's understanding.
+- **Understood Points:** Concepts that the Student explained correctly.
+- **Missing Points:** Important concepts that were not sufficiently addressed.
+- **Misunderstood Points:** Concepts that the Student explicitly explained incorrectly.
+
+The results are stored in Supabase PostgreSQL and can be reviewed by authorized Tutors.
+
+**Security and usage controls:**
+- Project access is restricted using Supabase Row Level Security.
+- Students can only access projects assigned to them.
+- AI analyses are generated and saved through a server-side API.
+- Students cannot directly modify AI-generated analysis fields.
+- AI understanding analyses are limited to three requests per Student per UTC day.
+- AI-generated feedback is advisory and should be reviewed by the Tutor.
 
 ### Admin Dashboard
 - View registered users and their roles.
@@ -105,15 +137,51 @@ npm run dev
 
 Open http://localhost:3000 in your browser.
 
-## Quality Checks
+## Quality Checks and Automated Tests
 
-Run the following commands to validate the project:
+StudyBuddy AI includes TypeScript validation, ESLint checks, production build verification, and automated Supabase authorization tests.
+
+### Code Quality
+
+Run:
 
 ```bash
 npx tsc --noEmit
 npm run lint
 npm run build
+
 ```
+
+### Automated Security Tests
+
+Run all automated tests using:
+
+`npm test`
+
+The test suite currently covers:
+
+- **Tutor Authorization:** Tutors can read assigned student profiles but not unrelated student profiles.
+- **Project Authorization:** Tutors can access their projects and AI analyses, while anonymous visitors cannot.
+- **Student Isolation:** Unassigned students cannot read another student's projects, assignments, or AI analyses.
+
+The tests use authenticated Supabase sessions and the public publishable key to verify Row Level Security policies.
+
+### Test Configuration and Shared Fixtures
+
+Configure the following variables in `.env.local`:
+
+- `TEST_TUTOR_EMAIL`
+- `TEST_TUTOR_PASSWORD`
+- `TEST_UNASSIGNED_STUDENT_EMAIL`
+- `TEST_UNASSIGNED_STUDENT_PASSWORD`
+
+Shared fixtures are located in `tests/fixtures/project-understanding.mjs`.
+
+The fixture retrieves project, student assignment, and AI analysis identifiers dynamically instead of using hard-coded UUIDs.
+
+**Current limitation:** The integration tests depend on existing test accounts and a project named `Introduction to Data Analysis`, with exactly one assigned student and at least one saved analysis.
+
+The tests are read-only but connect to the configured Supabase database. A dedicated test environment with independently created and cleaned-up fixtures is recommended.
 
 ## Security and Usage Limits
 
@@ -127,6 +195,7 @@ The application includes several security and resource-management mechanisms:
 - Sensitive API keys remain server-side.
 - AI quiz generation is limited to five requests per student per UTC day.
 - AI study recommendations are limited to three requests per student per UTC day.
+- AI project understanding analyses are limited to three requests per student per UTC day.
 
 These mechanisms provide application-level safeguards but do not replace comprehensive production security testing.
 
@@ -144,13 +213,19 @@ StudyBuddy AI demonstrates how artificial intelligence and data analytics can su
 
 The project combines full-stack web development, secure database management, AI integration, and learning performance analysis in a unified platform.
 
+
 ## Project Status
 
-**Deployed and functionally tested.**
+**Deployed on Vercel — Core functionality implemented and tested.**
 
-Core Student, Tutor, and Admin workflows have been tested on the production deployment. Further enhancements, usability improvements, and additional testing may be implemented as the project evolves.
+The application includes Student, Tutor, and Admin workflows, AI-powered quizzes, personalized recommendations, and Project Understanding Check.
 
-## Author
+The Project Understanding Check workflow has been tested end-to-end in development, including OpenAI analysis and Supabase persistence. Project visibility and Tutor access to saved results have also been verified on the production deployment.
+
+Three automated Supabase authorization tests pass using `npm test`.
+
+Future improvements include independently managed test fixtures, additional authorization tests, and persistent Student-side access to previous understanding analyses.
+
 
 **Thanuseg Kannathasan**
 
