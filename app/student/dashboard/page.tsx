@@ -110,6 +110,12 @@ export default function StudentDashboardPage() {
 
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
+  href="/student/projects"
+  className="inline-block rounded-lg border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+>
+  My Projects
+</Link>
+              <Link
                 href="/student/subjects"
                 className="inline-block rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
               >

@@ -23,6 +23,12 @@ export default function TutorDashboardPage() {
               >
                 My Students →
               </Link>
+              <Link
+  href="/tutor/projects"
+  className="inline-block rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+>
+  My Projects →
+</Link>
             </div>
           </div>
 
