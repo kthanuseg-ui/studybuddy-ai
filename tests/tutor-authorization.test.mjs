@@ -2,26 +2,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createClient } from "@supabase/supabase-js";
+import { loadProjectFixture } from "./fixtures/project-understanding.mjs";
 
-// Existing test students in the Supabase database.
-const assignedStudentId = "2f741cc3-5166-41c8-95e9-4319aa47ff13";
-const unassignedStudentId = "1a257f85-7fb2-4f2d-ac0e-4ecee13260b8";
-
-test("Tutor can only read assigned student profiles", async () => {
-  const requiredVariables = [
-    "NEXT_PUBLIC_SUPABASE_URL",
-    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-    "TEST_TUTOR_EMAIL",
-    "TEST_TUTOR_PASSWORD",
-  ];
-
-  for (const name of requiredVariables) {
-    assert.ok(process.env[name], `Missing environment variable: ${name}`);
-  }
-
-  // Use the public key and a real Tutor session.
-  // Never use the Supabase secret/service-role key for this test.
-  const supabase = createClient(
+function makeClient() {
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
@@ -31,50 +15,112 @@ test("Tutor can only read assigned student profiles", async () => {
       },
     }
   );
+}
 
-  const { data: authData, error: authError } =
-    await supabase.auth.signInWithPassword({
-      email: process.env.TEST_TUTOR_EMAIL,
-      password: process.env.TEST_TUTOR_PASSWORD,
-    });
+test("Tutor can only read assigned student profiles", async () => {
+  const requiredVariables = [
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+    "TEST_TUTOR_EMAIL",
+    "TEST_TUTOR_PASSWORD",
+    "TEST_UNASSIGNED_STUDENT_EMAIL",
+    "TEST_UNASSIGNED_STUDENT_PASSWORD",
+  ];
 
-  assert.ifError(authError);
-  assert.ok(authData.user, "Tutor login failed");
+  for (const name of requiredVariables) {
+    assert.ok(
+      process.env[name],
+      `Missing environment variable: ${name}`
+    );
+  }
+
+  const tutorClient = makeClient();
+  const studentClient = makeClient();
 
   try {
-    // Confirm that the test account really has the Tutor role.
-    const { data: tutorProfile, error: roleError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", authData.user.id)
-      .single();
+    // 1. Authenticate the Tutor.
+    const { data: tutorAuth, error: tutorError } =
+      await tutorClient.auth.signInWithPassword({
+        email: process.env.TEST_TUTOR_EMAIL,
+        password: process.env.TEST_TUTOR_PASSWORD,
+      });
+
+    assert.ifError(tutorError);
+    assert.ok(tutorAuth.user, "Tutor login failed");
+
+    // 2. Verify the Tutor role.
+    const { data: tutorProfile, error: roleError } =
+      await tutorClient
+        .from("profiles")
+        .select("role")
+        .eq("id", tutorAuth.user.id)
+        .single();
 
     assert.ifError(roleError);
     assert.equal(tutorProfile.role, "tutor");
 
-    // Thanu must be able to read Student Two.
-    const { data: allowed, error: allowedError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", assignedStudentId);
+    // 3. Get the assigned student's ID from our fixture.
+    const { assignedStudentId } =
+      await loadProjectFixture(tutorClient);
+
+    // 4. Authenticate the unassigned test Student.
+    const { data: studentAuth, error: studentError } =
+      await studentClient.auth.signInWithPassword({
+        email: process.env.TEST_UNASSIGNED_STUDENT_EMAIL,
+        password: process.env.TEST_UNASSIGNED_STUDENT_PASSWORD,
+      });
+
+    assert.ifError(studentError);
+    assert.ok(studentAuth.user, "Student login failed");
+
+    const unassignedStudentId = studentAuth.user.id;
+
+    // Confirm the test accounts are different.
+    assert.notEqual(
+      assignedStudentId,
+      unassignedStudentId,
+      "Test students must be different"
+    );
+
+    // 5. Tutor can read the assigned student's profile.
+    const { data: allowed, error: allowedError } =
+      await tutorClient
+        .from("profiles")
+        .select("id")
+        .eq("id", assignedStudentId);
 
     assert.ifError(allowedError);
-    assert.equal(allowed.length, 1);
+    assert.equal(
+      allowed.length,
+      1,
+      "Assigned student must be accessible"
+    );
 
-    // Thanu must NOT be able to read student1.
-    const { data: denied, error: deniedError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", unassignedStudentId);
+    console.log(
+      "PASS: Assigned student is accessible."
+    );
+
+    // 6. Tutor cannot read the unassigned student's profile.
+    const { data: denied, error: deniedError } =
+      await tutorClient
+        .from("profiles")
+        .select("id")
+        .eq("id", unassignedStudentId);
 
     assert.ifError(deniedError);
-    assert.equal(denied.length, 0);
+    assert.equal(
+      denied.length,
+      0,
+      "Unassigned student must not be accessible"
+    );
 
-       console.log("PASS: Assigned student is accessible.");
-    console.log("PASS: Unassigned student is not accessible.");
+    console.log(
+      "PASS: Unassigned student is not accessible."
+    );
   } finally {
-    // Sign out only this test session.
-    // Do not disconnect the Tutor's other active sessions.
-    await supabase.auth.signOut({ scope: "local" });
+    await Promise.all([
+      tutorClient.auth.signOut({ scope: "local" }),
+      studentClient.auth.signOut({ scope: "local" }),
+    ]);
   }
 });

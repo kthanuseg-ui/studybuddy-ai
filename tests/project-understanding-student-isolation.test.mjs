@@ -2,9 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createClient } from "@supabase/supabase-js";
-
-const studentOneId = "1a257f85-7fb2-4f2d-ac0e-4ecee13260b8";
-const studentTwoId = "2f741cc3-5166-41c8-95e9-4319aa47ff13";
+import { loadProjectFixture } from "./fixtures/project-understanding.mjs";
 
 function makeClient() {
   return createClient(
@@ -28,7 +26,7 @@ function assertNoAccess(result, description) {
     );
   } else {
     assert.equal(
-      result.data?.length,
+      result.data?.length ?? 0,
       0,
       `${description}: unauthorized data was visible`
     );
@@ -37,7 +35,7 @@ function assertNoAccess(result, description) {
   console.log(`PASS: ${description}`);
 }
 
-test("Student One cannot access Student Two project data", async () => {
+test("Student One cannot access another student's project data", async () => {
   const requiredVariables = [
     "NEXT_PUBLIC_SUPABASE_URL",
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
@@ -55,7 +53,7 @@ test("Student One cannot access Student Two project data", async () => {
   const studentClient = makeClient();
 
   try {
-    // Authenticate Tutor Thanu.
+    // Authenticate the test Tutor.
     const { data: tutorAuth, error: tutorError } =
       await tutorClient.auth.signInWithPassword({
         email: process.env.TEST_TUTOR_EMAIL,
@@ -65,34 +63,15 @@ test("Student One cannot access Student Two project data", async () => {
     assert.ifError(tutorError);
     assert.ok(tutorAuth.user, "Tutor authentication failed");
 
-    // Find the real test project.
-    const { data: project, error: projectError } =
-      await tutorClient
-        .from("projects")
-        .select("id")
-        .eq("tutor_id", tutorAuth.user.id)
-        .eq("title", "Introduction to Data Analysis")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+    // Retrieve the project, assigned student and saved
+    // analysis dynamically using our shared fixture.
+    const {
+      projectId,
+      assignedStudentId,
+      checkId,
+    } = await loadProjectFixture(tutorClient);
 
-    assert.ifError(projectError);
-    assert.ok(project, "Test project not found");
-
-    // Find Student Two's saved analysis.
-    const { data: check, error: checkError } =
-      await tutorClient
-        .from("understanding_checks")
-        .select("id")
-        .eq("project_id", project.id)
-        .eq("student_id", studentTwoId)
-        .limit(1)
-        .single();
-
-    assert.ifError(checkError);
-    assert.ok(check, "Student Two analysis not found");
-
-    // Authenticate Student One using their own session.
+    // Authenticate Student One.
     const { data: studentAuth, error: studentError } =
       await studentClient.auth.signInWithPassword({
         email: process.env.TEST_UNASSIGNED_STUDENT_EMAIL,
@@ -100,39 +79,53 @@ test("Student One cannot access Student Two project data", async () => {
       });
 
     assert.ifError(studentError);
-    assert.ok(studentAuth.user, "Student One login failed");
+    assert.ok(studentAuth.user, "Student authentication failed");
 
-    // Ensure we are testing the intended account.
-    assert.equal(
+    // Confirm the account has the Student role.
+    const { data: studentProfile, error: profileError } =
+      await studentClient
+        .from("profiles")
+        .select("role")
+        .eq("id", studentAuth.user.id)
+        .single();
+
+    assert.ifError(profileError);
+    assert.equal(studentProfile.role, "student");
+
+    // Ensure this is not the student assigned to the project.
+    assert.notEqual(
       studentAuth.user.id,
-      studentOneId,
-      "The test account is not Student One"
+      assignedStudentId,
+      "The unassigned test account must be different"
     );
 
-    // Test 1: Student One cannot read the project.
+    // Test 1: The unassigned Student cannot read the project.
     const projectResult = await studentClient
       .from("projects")
       .select("id")
-      .eq("id", project.id);
+      .eq("id", projectId);
 
-    assertNoAccess(projectResult, "Student One cannot read the project");
+    assertNoAccess(
+      projectResult,
+      "Student One cannot read the project"
+    );
 
-    // Test 2: Student One cannot read its assignment.
+    // Test 2: The unassigned Student cannot read its assignment.
     const assignmentResult = await studentClient
       .from("project_assignments")
       .select("id")
-      .eq("project_id", project.id);
+      .eq("project_id", projectId);
 
     assertNoAccess(
       assignmentResult,
       "Student One cannot read the project assignment"
     );
 
-    // Test 3: Student One cannot read Student Two's AI analysis.
+    // Test 3: The unassigned Student cannot read the AI analysis.
     const analysisResult = await studentClient
       .from("understanding_checks")
       .select("id")
-      .eq("id", check.id);
+      .eq("id", checkId);
 
     assertNoAccess(
       analysisResult,

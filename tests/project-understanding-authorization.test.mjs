@@ -2,9 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createClient } from "@supabase/supabase-js";
-
-const assignedStudentId =
-  "2f741cc3-5166-41c8-95e9-4319aa47ff13";
+import { loadProjectFixture } from "./fixtures/project-understanding.mjs";
 
 function assertAccessDenied(result, label) {
   if (result.error) {
@@ -80,43 +78,30 @@ test(
       assert.ifError(profileError);
       assert.equal(profile.role, "tutor");
 
-      // 2. Tutor must be able to read their own project.
-      const { data: project, error: projectError } =
-        await tutorClient
-          .from("projects")
-          .select("id, tutor_id")
-          .eq("tutor_id", authData.user.id)
-          .eq("title", "Introduction to Data Analysis")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
 
-      assert.ifError(projectError);
-      assert.ok(project, "Test project not found");
+      // 2. Load the test project and its analysis
+      // using our shared fixture instead of hard-coded UUIDs.
+      const {
+        projectId,
+        assignedStudentId,
+        checkId,
+      } = await loadProjectFixture(tutorClient);
 
+      assert.ok(projectId, "Test project not found");
       console.log("PASS: Tutor can read their project.");
 
-      // 3. Tutor must be able to read Student Two's analysis.
-      const { data: check, error: checkError } =
-        await tutorClient
-          .from("understanding_checks")
-          .select("id, project_id, student_id")
-          .eq("project_id", project.id)
-          .eq("student_id", assignedStudentId)
-          .limit(1)
-          .maybeSingle();
-
-      assert.ifError(checkError);
-      assert.ok(check, "Student Two analysis not found");
-
+      assert.ok(assignedStudentId, "Assigned student not found");
+      assert.ok(checkId, "Student analysis not found");
       console.log("PASS: Tutor can read the assigned analysis.");
+
+
 
       // 4. An anonymous visitor must NOT see the project.
       const anonymousProject =
         await anonymousClient
           .from("projects")
           .select("id")
-          .eq("id", project.id);
+          .eq("id", projectId);
 
       assertAccessDenied(
         anonymousProject,
@@ -130,7 +115,7 @@ test(
         await anonymousClient
           .from("understanding_checks")
           .select("id")
-          .eq("id", check.id);
+        .eq("id", checkId);
 
       assertAccessDenied(
         anonymousCheck,
